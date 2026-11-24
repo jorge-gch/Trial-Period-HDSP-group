@@ -15,6 +15,7 @@
 \usepackage{parskip}
 \usepackage{enumitem}
 \usepackage[hidelinks]{hyperref}
+\setlength{\emergencystretch}{1.5em}
 
 \captionsetup{font=small,labelfont=bf,skip=4pt}
 \graphicspath{{figures/}}
@@ -26,8 +27,8 @@
 \newcommand{\vecop}{\operatorname{vec}}
 
 \title{\vspace{-1.4cm}
-\textbf{Laboratory 2:\\[2pt]
-Basic Optimization and Introduction to Inverse Problems}\\[6pt]
+\textbf{Laboratory 2:}\\[2pt]
+\textbf{Basic Optimization and\\[2pt] Introduction to Inverse Problems}\\[6pt]
 \large Written Solution: Calculations, Explanations, and Answers}
 \author{HDSP Research Group\\
 School of Systems and Computer Engineering\\
@@ -38,24 +39,41 @@ Universidad Industrial de Santander}
 \maketitle
 
 \vspace{-0.5cm}
-\noindent\rule{\textwidth}{0.4pt}
+\noindent\rule{\textwidth}{0.4pt}\par
 \small
 This document is the written solution of Laboratory~2. All numerical values, figures, and
 conclusions were produced by the accompanying notebook \texttt{lab2.ipynb}; the figures are
 reproduced directly from its outputs. Section~\ref{sec:opt} solves the calculus exercises,
 Section~\ref{sec:ls} the least-squares and pseudoinverse experiment, Section~\ref{sec:inv} the
 deconvolution problem, and Section~\ref{sec:ista} the regularized reconstruction with a sparse
-wavelet prior.
+wavelet prior. The theoretical background follows the workshop notes~\cite{heckel2024}.
+
 \normalsize
-\noindent\rule{\textwidth}{0.4pt}
+\noindent\rule{\textwidth}{0.4pt}\par
 
 %=====================================================================
 \section{Optimization in one and two dimensions}\label{sec:opt}
 
-For a differentiable objective, candidates are located by setting the gradient to zero and are
-classified with the second-order information (second derivative in 1D, Hessian in 2D).
+\subsection{Notation and interpretation}
 
-\subsection{Exercise 1 (1D): minimize $f(x)=x^4-4x^2+x$}
+An optimization problem is written as $\min_{x\in\mathcal{D}} f(x)$. In plain words, among all
+admissible choices $x$ we keep the one that makes $f$ as small as possible. The \emph{decision
+variable} $x$ is what we are free to choose (a scalar, a vector, a signal, or an image stored as a
+long vector); the \emph{objective} $f(x)$ assigns a single number (cost, error, energy) to each
+candidate, and smaller values are better. A maximization is handled by minimizing $-f$, e.g.\
+maximizing profit is the same as minimizing negative profit. A point $x^\star$ is a
+\emph{global} minimizer if $f(x^\star)\le f(x)$ for every admissible $x$, and a \emph{local}
+minimizer if the inequality holds in a neighborhood of $x^\star$. Practical examples: in delivery
+planning $x$ is the route and $f$ is fuel, driver time, and delay penalties; in linear regression
+$x$ is the coefficient vector and $f$ is the prediction error; in image deblurring $x$ is the
+unknown clean image and $f$ combines data mismatch with a regularizer; in portfolio design $x$ is
+the amount invested in each asset and $f$ balances risk and return. In this report $x$ is a scalar
+(Section~\ref{sec:opt}), a pair $(x,y)$, a coefficient vector in $\R^n$ (Section~\ref{sec:ls}), or
+an image vector in $\R^N$ (Sections~\ref{sec:inv}--\ref{sec:ista}). For a differentiable
+objective, candidates are located by setting the gradient to zero and are classified with the
+second-order information (second derivative in 1D, Hessian in 2D).
+
+\subsection{Exercise 1 (1D): minimize \texorpdfstring{$f(x)=x^4-4x^2+x$}{f(x) = x4 - 4x2 + x}}
 
 The derivatives are
 \begin{equation}
@@ -119,13 +137,13 @@ marked in red and the dotted line is its function value.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{fig_cell3_0.png}
+\includegraphics[width=\textwidth]{fig01_1d.png}
 \caption{Exercise 1: graph of $f(x)=x^4-4x^2+x$ with the three critical points (the global
 minimum in red). The dotted horizontal line marks $f(x^\star)\approx-5.4442$.}
 \label{fig:1d}
 \end{figure}
 
-\subsection{Exercise 2 (2D): minimize $f(x,y)=x^2+xy+y^2-4x-6y$}
+\subsection{Exercise 2 (2D): minimize \texorpdfstring{$f(x,y)=x^2+xy+y^2-4x-6y$}{f(x,y) = x2 + xy + y2 - 4x - 6y}}
 
 The gradient is
 \begin{equation}
@@ -181,7 +199,7 @@ curves and the surface.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{fig_cell6_0.png}
+\includegraphics[width=\textwidth]{fig02_2d.png}
 \caption{Exercise 2: level curves (left) and surface (right) of
 $f(x,y)=x^2+xy+y^2-4x-6y$, with the global minimum at $(2/3,8/3)$.}
 \label{fig:2d}
@@ -231,7 +249,7 @@ Consequently $\nabla_x\!\left(\tfrac12\|Ax-y\|_2^2\right)=A^\T(Ax-y)$. Setting t
 to zero yields the normal equations $A^\T A x=A^\T y$.
 
 %=====================================================================
-\section{Least squares and the pseudoinverse in $\R^n$}\label{sec:ls}
+\section{Least squares and the pseudoinverse in \texorpdfstring{$\R^n$}{Rn}}\label{sec:ls}
 
 \subsection{Normal equations and the pseudoinverse}
 
@@ -317,19 +335,10 @@ Figure~\ref{fig:scatter} the recovered coefficients.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.98\textwidth]{fig_cell10_0.png}
+\includegraphics[width=0.98\textwidth]{fig03_pinv_bars.png}
 \caption{Relative reconstruction error (left) and fit residual (right) for \texttt{pinv} and
 \texttt{lstsq}. The vertical axis is logarithmic; the two methods give bars of equal height.}
 \label{fig:bars}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.92\textwidth]{fig_cell12_0.png}
-\caption{Recovered coefficients $\hat{x}$ versus the true coefficients $x_{\text{true}}$. In the
-overdetermined case the points lie on the diagonal; in the underdetermined case the minimum-norm
-solution is far from $x_{\text{true}}$ even though the residual is essentially zero.}
-\label{fig:scatter}
 \end{figure}
 
 \paragraph{Underdetermined case.}
@@ -349,6 +358,15 @@ $x^\star=A^\T(AA^\T)^{-1}y$. It reproduces the data with zero residual, but it d
 true vector, since infinitely many coefficient vectors produce the same measurements. A small
 residual therefore does not imply a small reconstruction error.
 
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\textwidth]{fig04_coefficients.png}
+\caption{Recovered coefficients $\hat{x}$ versus the true coefficients $x_{\text{true}}$. In the
+overdetermined case the points lie on the diagonal; in the underdetermined case the minimum-norm
+solution is far from $x_{\text{true}}$ even though the residual is essentially zero.}
+\label{fig:scatter}
+\end{figure}
+
 %=====================================================================
 \section{Linear inverse problems: deconvolution and instability}\label{sec:inv}
 
@@ -365,8 +383,8 @@ k[i,j]=\frac{1}{Z}\exp\!\left(-\frac{i^2+j^2}{2\sigma_k^2}\right),
 Z=\sum_{i,j}\exp\!\left(-\frac{i^2+j^2}{2\sigma_k^2}\right),
 \label{eq:kernel}
 \end{equation}
-with symmetric (reflection) boundary conditions. The kernel sums to one, $Z^{-1}\sum k=1$, so a
-constant image is preserved.
+with symmetric (reflection) boundary conditions. The kernel sums to one,
+$\sum_{i,j}k[i,j]=1$, so a constant image is preserved.
 
 The matrix $A\in\R^{N\times N}$ is built column by column: for each pixel index $j$, a basis image
 $E_j$ (zero except for a one at pixel $j$) is blurred, and the result is stored as column $j$,
@@ -401,7 +419,8 @@ Because $\|y\|_2\le\sigma_{\max}\|x\|_2$, the relative error satisfies
 \kappa(A)=\frac{\sigma_{\max}}{\sigma_{\min}} .
 \label{eq:bound}
 \end{equation}
-The computed condition number is $\kappa(A)=2.44\times10^{8}$, while the relative noise level is
+This is the standard noise-amplification mechanism of ill-conditioned inverse
+problems~\cite{hansen2010}. The computed condition number is $\kappa(A)=2.44\times10^{8}$, while the relative noise level is
 $\|e\|_2/\|y\|_2=7.96\times10^{-3}$. The observed amplification
 $\|\hat{x}_{\text{noisy}}-x\|_2/\|e\|_2=4.38\times10^{6}$ is large but below the worst-case
 factor $1/\sigma_{\min}\approx2.4\times10^{8}$, because a random perturbation is not aligned with
@@ -423,13 +442,13 @@ Inverting noise added before the blur       & $45.94$  & $0.993$\\
 \bottomrule
 \end{tabular}
 \caption{Reconstruction quality for the deconvolution experiment. PSNR uses
-$\mathrm{PSNR}=10\log_{10}(1/\mathrm{MSE})$ with data range $1$; SSIM is computed with the
-default local windows.}
+$\mathrm{PSNR}=10\log_{10}(1/\mathrm{MSE})$ with data range $1$; SSIM is computed with
+\texttt{skimage.metrics.structural\_similarity} and \texttt{data\_range=1}.}
 \label{tab:deconv}
 \end{table}
 
 The quality metrics are the mean squared error, the peak signal-to-noise ratio, and the
-structural similarity index:
+structural similarity index~\cite{wang2004}:
 \begin{equation}
 \mathrm{MSE}=\frac{1}{N}\|x-\hat{x}\|_2^2,
 \qquad
@@ -460,9 +479,9 @@ image is simply the noisy image. Its metrics, $45.94$~dB and $0.993$, coincide w
 $x+e$ (Figure~\ref{fig:deconv}f).
 \end{itemize}
 
-\begin{figure}[htbp]
+\begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{fig_cell17_0.png}
+\includegraphics[width=\textwidth]{fig05_deconvolution.png}
 \caption{Deconvolution experiment: (a) original image; (b) blurred data without noise; (c)
 pseudoinverse of the clean data; (d) blurred data with noise added after the blur; (e)
 pseudoinverse of the noisy data (noise amplified); (f) control with noise added before the blur.}
@@ -486,7 +505,7 @@ essentially unchanged.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{fig_cell20_0.png}
+\includegraphics[width=\textwidth]{fig06_spectrum.png}
 \caption{Left: singular values of $A$ in decreasing order; the dashed red line is the noise
 standard deviation $\sigma_\eta=0.005$, and $1394$ of $2304$ values fall below it. Right:
 relative error of the reconstructed image versus relative error of the measurements, for noise
@@ -519,7 +538,7 @@ The reconstruction is now defined as
 \label{eq:istaobj}
 \end{equation}
 where $W$ is an orthonormal wavelet transform (Daubechies \texttt{db2}, three levels,
-periodization mode). The data term is smooth, with gradient
+periodization mode)~\cite{mallat2009}. The data term is smooth, with gradient
 \begin{equation}
 \nabla f(x)=A^\T(Ax-y_\eta),\qquad f(x)=\tfrac12\|Ax-y_\eta\|_2^2 ,
 \label{eq:gradf}
@@ -572,13 +591,13 @@ discarding the many small ones removes noise.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.9\textwidth]{fig_cell24_1.png}
+\includegraphics[width=0.9\textwidth]{fig07_wavelet.png}
 \caption{(a) Test image $X$. (b) Magnitude of its wavelet coefficients on a logarithmic scale;
 $38$ coefficients carry $95\%$ of the energy, which shows that the image is sparse in this basis.}
 \label{fig:wavelet}
 \end{figure}
 
-\subsection{Choice of the regularization strength $\lambda$}
+\subsection{Choice of the regularization strength \texorpdfstring{$\lambda$}{lambda}}
 
 Seven values of $\lambda$ were tested, each with $250$ ISTA iterations and $\eta$ from
 \eqref{eq:Leta}. The results are given in Table~\ref{tab:lambda} and Figure~\ref{fig:ista}a.
@@ -632,7 +651,7 @@ using the known original image; in a real application it must be chosen by a dat
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{fig_cell28_1.png}
+\includegraphics[width=\textwidth]{fig08_ista.png}
 \caption{(a) PSNR and SSIM versus $\lambda$ after $250$ iterations; the red dashed line marks the
 value selected by PSNR. (b) PSNR and SSIM during $1500$ iterations at $\lambda=2\times10^{-5}$;
 the red line marks the best iteration ($260$). (c) The ISTA objective decreases monotonically
@@ -664,14 +683,14 @@ $\lambda=2\times10^{-5}$.}
 \end{table}
 
 Already after $10$ iterations ISTA surpasses the blurred measurement, and at iteration $260$ it
-gains $4.56$~dB over it and roughly $115$~dB over the direct inversion, while SSIM rises from
-$0.000$ to $0.876$. Visually, the oscillatory noise of the direct inversion disappears and the
+gains $4.56$~dB over it (reaching $28.05$~dB), whereas the direct inversion gives $-86.90$~dB;
+SSIM rises from $0.000$ to $0.876$. Visually, the oscillatory noise of the direct inversion disappears and the
 main edges and textures are restored. The remaining error is mostly the high-frequency
 information destroyed by the blur, which no inversion method can recover.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.72\textwidth]{fig_cell31_1.png}
+\includegraphics[width=0.72\textwidth]{fig09_comparison.png}
 \caption{Top-left: blurred measurement. Top-right: direct inversion of the noisy data. Bottom-left:
 ISTA after $10$ iterations. Bottom-right: ISTA at the best iteration ($260$). PSNR and SSIM are
 shown above each panel.}
@@ -703,7 +722,7 @@ $\lambda=10^{-3}$ the image is over-smoothed and both metrics fall ($25.58$~dB, 
 The useful range is roughly one decade, $10^{-5}$--$10^{-4}$.
 
 \paragraph{How would a smoothness or total-variation prior change the result?}
-A total-variation prior would penalize the $\ell_1$ norm of the image gradient instead of wavelet
+A total-variation prior would penalize the \ell_1 norm of the image gradient instead of wavelet
 coefficients, favoring piecewise-smooth images with sharp edges. It would be expected to preserve
 straight edges and flat regions well, but it requires a more elaborate proximal step (e.g.,
 Chambolle's algorithm) and can produce staircase artifacts on smooth gradients. Tikhonov
@@ -712,7 +731,7 @@ to the wavelet sparsity prior; they were not implemented in this laboratory.
 
 \paragraph{Does more iterations always mean a better image?}
 No. The objective decreases monotonically, but the PSNR peaks at iteration $260$ and then declines;
-at $1500$ iterations the image is visibly noisier. Early stopping is therefore an additional
+at $1500$ iterations the PSNR has dropped to $26.17$~dB. Early stopping is therefore an additional
 regularization parameter, as discussed in Section~\ref{sec:ista}.
 
 %=====================================================================
@@ -731,8 +750,8 @@ $10^{-14}$. For $m>n$ the error is limited by noise ($4.47\times10^{-3}$); for $
 pseudoinverse returns the minimum-norm solution, with zero residual but a large coefficient error
 ($0.893$).
 \item \textbf{Deconvolution.} The blur matrix has $\kappa(A)=2.44\times10^{8}$. Inversion is exact
-without noise (maximum error $1.73\times10^{-9}$) but amplifies noise added after the blur by a
-factor $4.38\times10^{6}$, giving PSNR $-86.90$~dB. Noise added before the blur is not amplified:
+up to roundoff without noise (maximum error $1.73\times10^{-9}$) but amplifies noise added after
+the blur by a factor $4.38\times10^{6}$, giving PSNR $-86.90$~dB. Noise added before the blur is not amplified:
 the inversion returns the noisy image ($45.94$~dB). The difference is explained by
 $\hat{x}-x=A^\dagger e$ and the division by the tiny singular values.
 \item \textbf{Sparse reconstruction.} Only $38$ wavelet coefficients carry $95\%$ of the image
@@ -741,7 +760,7 @@ $28.05$~dB and SSIM $0.876$ at iteration $260$, against $-86.90$~dB for direct i
 objective decreases monotonically, but the PSNR peaks and then decreases, so early stopping is
 also a regularization mechanism.
 \item \textbf{Limits of the prior.} The prior stabilizes the inversion and restores structure, but
-it cannot recover the information destroyed by the blur; $1394$ of $2304$ singular directions are
+it cannot recover the information dominated by noise: $1394$ of $2304$ singular directions are
 already below the noise level. Better priors (total variation, learned denoisers) or additional
 data are required to go further.
 \end{enumerate}
