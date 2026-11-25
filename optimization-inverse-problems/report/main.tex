@@ -45,8 +45,9 @@ This document is the written solution of Laboratory~2. All numerical values, fig
 conclusions were produced by the accompanying notebook \texttt{lab2.ipynb}; the figures are
 reproduced directly from its outputs. Section~\ref{sec:opt} solves the calculus exercises,
 Section~\ref{sec:ls} the least-squares and pseudoinverse experiment, Section~\ref{sec:inv} the
-deconvolution problem, and Section~\ref{sec:ista} the regularized reconstruction with a sparse
-wavelet prior. The theoretical background follows the workshop notes~\cite{heckel2024}.
+deconvolution problem, Section~\ref{sec:ista} the regularized reconstruction with a sparse
+wavelet prior, and Section~\ref{sec:priors} a comparison of that prior with Tikhonov smoothness
+and total variation. The theoretical background follows the workshop notes~\cite{heckel2024}.
 
 \normalsize
 \noindent\rule{\textwidth}{0.4pt}\par
@@ -722,17 +723,225 @@ $\lambda=10^{-3}$ the image is over-smoothed and both metrics fall ($25.58$~dB, 
 The useful range is roughly one decade, $10^{-5}$--$10^{-4}$.
 
 \paragraph{How would a smoothness or total-variation prior change the result?}
-A total-variation prior would penalize the \ell_1 norm of the image gradient instead of wavelet
-coefficients, favoring piecewise-smooth images with sharp edges. It would be expected to preserve
-straight edges and flat regions well, but it requires a more elaborate proximal step (e.g.,
-Chambolle's algorithm) and can produce staircase artifacts on smooth gradients. Tikhonov
-smoothness, by contrast, is quadratic and easy to implement but blurs edges. Both are alternatives
-to the wavelet sparsity prior; they were not implemented in this laboratory.
+A total-variation prior penalizes the $\ell_1$ norm of the image gradient instead of wavelet
+coefficients, favoring piecewise-smooth images with sharp edges. Tikhonov smoothness, by contrast,
+is quadratic and easy to implement but blurs edges. Both were implemented and compared in
+Section~\ref{sec:priors}: with identical noisy data, TV reached $29.27$~dB and SSIM $0.925$,
+Tikhonov $27.98$~dB and SSIM $0.863$, and the wavelet ISTA $28.05$~dB and SSIM $0.876$. TV
+preserves the edges best, but it needs a primal-dual iteration (its proximal step has no closed
+form) and can produce staircase artifacts on smooth gradients.
 
 \paragraph{Does more iterations always mean a better image?}
 No. The objective decreases monotonically, but the PSNR peaks at iteration $260$ and then declines;
 at $1500$ iterations the PSNR has dropped to $26.17$~dB. Early stopping is therefore an additional
 regularization parameter, as discussed in Section~\ref{sec:ista}.
+
+%=====================================================================
+\section{Alternative priors: Tikhonov smoothness and total variation}\label{sec:priors}
+
+\subsection{Motivation and the two penalties}
+
+The wavelet prior of Section~\ref{sec:ista} is only one member of a larger family of
+regularizers. In general, any functional $R$ that measures how implausible an image is can be
+used as a prior, and the workshop notes mention two classical alternatives to sparsity:
+quadratic smoothness (Tikhonov) and piecewise smoothness (total variation). Both assume that
+neighbouring pixels should be similar, so both can suppress the noise amplified by the inverse
+of the blur, but they penalize jumps in very different ways.
+
+Let $G\in\R^{2N\times N}$ be the discrete gradient: it stacks the horizontal and vertical
+forward differences between neighbouring pixels, with Neumann (zero-difference) boundary
+conditions. The two penalties are
+\begin{equation}
+R_{\text{Tik}}(x)=\frac12\|Gx\|_2^2
+=\frac12\sum_{i=1}^{N}\left[(D_hx)_i^2+(D_vx)_i^2\right],
+\qquad
+R_{\text{TV}}(x)=\sum_{i=1}^{N}\sqrt{(D_hx)_i^2+(D_vx)_i^2}.
+\label{eq:priors}
+\end{equation}
+Inside a flat region both penalties are zero. The difference is the growth for a jump of height
+$h$: Tikhonov charges $\tfrac12 h^2$, which becomes very expensive for a strong edge, whereas TV
+charges $|h|$, which grows only linearly. A quadratic penalty therefore prefers to spread an edge
+over several pixels (it is blurred), while a linear penalty accepts a sharp edge at a bounded
+cost. This is why TV is said to favour \emph{piecewise-smooth} images.
+
+\subsection{Tikhonov smoothness: a quadratic prior}
+
+The Tikhonov problem is
+\begin{equation}
+\hat{x}_\lambda=\argmin_{x\in\R^N}\;
+\frac12\|Ax-y_\eta\|_2^2+\frac{\lambda}{2}\|Gx\|_2^2,
+\qquad \lambda\ge0 .
+\label{eq:tikobj}
+\end{equation}
+The objective is differentiable and strongly convex, so stationarity gives the linear system
+\begin{equation}
+\left(A^\T A+\lambda\,G^\T G\right)x=A^\T y_\eta .
+\label{eq:tiknormal}
+\end{equation}
+Because $G^\T G\succeq0$ and $A$ is invertible, the matrix is positive definite and the solution
+exists and is unique. With the SVD $A=U\Sigma V^\T$ and $G=I$, it has the closed form
+\begin{equation}
+\hat{x}_\lambda=\sum_{i=1}^{N}\frac{s_i^2}{s_i^2+\lambda}\,
+\frac{u_i^\T y_\eta}{s_i}\,v_i .
+\label{eq:tikfilter}
+\end{equation}
+The filter factor $s_i^2/(s_i^2+\lambda)$ is close to one for $s_i\gg\sqrt{\lambda}$ and close to
+zero for $s_i\ll\sqrt{\lambda}$. Thus, instead of dividing by a tiny singular value and
+amplifying the noise as the pseudoinverse does, Tikhonov \emph{damps} those directions. As
+$\lambda\to0$ the pseudoinverse is recovered, and as $\lambda\to\infty$ the estimate tends to
+zero. The price of the quadratic penalty is precisely the smoothing of the jumps discussed
+above: the method is stable but blurs edges.
+
+Equation~\eqref{eq:tiknormal} is solved with conjugate gradients, applying $A^\T A$ through its
+SVD and $G^\T G$ as a sparse matrix; the normal matrix is never formed. The gradient operator has
+$9024$ non-zero entries in a $4608\times2304$ matrix.
+
+\subsection{Total variation and the Chambolle--Pock algorithm}
+
+The total-variation problem replaces the squared gradient by its magnitude,
+\begin{equation}
+\hat{x}_\lambda=\argmin_{x\in\R^N}\;
+\frac12\|Ax-y_\eta\|_2^2+\lambda\sum_{i=1}^{N}
+\sqrt{(D_hx)_i^2+(D_vx)_i^2}.
+\label{eq:tvobj}
+\end{equation}
+The penalty is an $\ell_1$ norm of the gradient: convex, but not differentiable where the
+gradient vanishes, so there is no normal-equation solution. It is solved with the
+Chambolle--Pock primal-dual algorithm~\cite{chambolle2011}. Introducing the dual variable $p$ for
+the data term and $q=(q_h,q_v)$ for the gradient, one iteration reads
+\begin{equation}
+\begin{aligned}
+p^{k+1}&=\frac{p^k+\sigma\left(A\bar{x}^k-y_\eta\right)}{1+\sigma},\\
+q^{k+1}&=\operatorname{proj}_{\|\cdot\|_2\le\lambda}
+\left(q^k+\sigma\,G\bar{x}^k\right),\\
+x^{k+1}&=x^k-\tau\left(A^\T p^{k+1}+G^\T q^{k+1}\right),\\
+\bar{x}^{k+1}&=2x^{k+1}-x^k .
+\end{aligned}
+\label{eq:cp}
+\end{equation}
+The projection onto the ball of radius $\lambda$ is applied pixel by pixel,
+$q\leftarrow q/\max(1,\|q\|_2/\lambda)$. The iteration converges whenever
+$\tau\sigma\|[A;G]\|_2^2<1$. Since $\|A\|_2^2=s_{\max}^2\approx0.9912$ and
+$\|G\|_2^2\le8$, the choice $\tau=\sigma=0.99/\sqrt{s_{\max}^2+8}\approx0.33$ satisfies the
+condition with a small safety margin.
+
+\subsection{Choice of the regularization weight}
+
+For a fair comparison, both priors use the same noisy measurement $y_\eta$ of
+Section~\ref{sec:inv}. The Tikhonov problem was solved for six values of $\lambda$ and the TV
+problem for five values, with $1500$ primal-dual iterations each. Tables~\ref{tab:tikhonov} and
+\ref{tab:tv} list the results, and Figure~\ref{fig:priors} shows the two curves.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{cccc}
+\toprule
+$\lambda$ & PSNR (dB) & SSIM & Note\\
+\midrule
+$1\times10^{-4}$ & $24.04$ & $0.644$ & too weak, noise remains\\
+$3\times10^{-4}$ & $26.78$ & $0.772$ & \\
+$1\times10^{-3}$ & $\mathbf{27.98}$ & $0.863$ & best PSNR\\
+$3\times10^{-3}$ & $27.78$ & $0.892$ & \\
+$1\times10^{-2}$ & $27.02$ & $\mathbf{0.893}$ & best SSIM\\
+$3\times10^{-2}$ & $26.15$ & $0.880$ & over-smoothed\\
+\bottomrule
+\end{tabular}
+\caption{Tikhonov smoothness: PSNR and SSIM versus $\lambda$ (conjugate gradients, tolerance
+$10^{-8}$).}
+\label{tab:tikhonov}
+\end{table}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{cccc}
+\toprule
+$\lambda$ & PSNR (dB) & SSIM & Note\\
+\midrule
+$1\times10^{-4}$ & $29.10$ & $0.916$ & \\
+$2\times10^{-4}$ & $\mathbf{29.27}$ & $0.925$ & best PSNR\\
+$3\times10^{-4}$ & $29.21$ & $\mathbf{0.926}$ & best SSIM\\
+$5\times10^{-4}$ & $28.95$ & $0.924$ & \\
+$1\times10^{-3}$ & $28.43$ & $0.916$ & over-smoothed\\
+\bottomrule
+\end{tabular}
+\caption{Total variation: PSNR and SSIM versus $\lambda$ after $1500$ Chambolle--Pock iterations.}
+\label{tab:tv}
+\end{table}
+
+Both curves have the expected U-shape: a small $\lambda$ leaves the amplified noise, and a large
+one erases texture. The optimum is at $\lambda\approx10^{-3}$ for Tikhonov and at
+$\lambda\approx2\times10^{-4}$ for TV. The two scales are not comparable, because the penalties
+have different units and grow differently with the image size. Notice also that Tikhonov's PSNR
+peaks earlier and then falls faster, while TV remains above $28.9$~dB over most of the tested
+range: the edge-preserving penalty is more tolerant to the choice of $\lambda$.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{fig10_priors_sweep.png}
+\caption{Tikhonov (circles) and total variation (squares) as a function of $\lambda$: PSNR (left)
+and SSIM (right). The dotted vertical lines mark the value selected by PSNR for each prior.}
+\label{fig:priors}
+\end{figure}
+
+\subsection{Comparison with the sparse wavelet prior}
+
+Table~\ref{tab:priors} and Figure~\ref{fig:priorscomp} put the three priors side by side, always
+using the same noisy data and the same metrics.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{lcc}
+\toprule
+Method & PSNR (dB) & SSIM\\
+\midrule
+Blurred measurement                       & $23.49$  & $0.812$\\
+Direct inversion (pseudoinverse)          & $-86.90$ & $0.000$\\
+Tikhonov, $\lambda=10^{-3}$               & $27.98$  & $0.863$\\
+Wavelet ISTA, $\lambda=2\times10^{-5}$     & $28.05$  & $0.876$\\
+Total variation, $\lambda=2\times10^{-4}$  & $\mathbf{29.27}$ & $\mathbf{0.925}$\\
+\bottomrule
+\end{tabular}
+\caption{Comparison of priors on the same noisy deblurring problem. ISTA uses its best iteration
+($260$); TV uses $1500$ primal-dual iterations.}
+\label{tab:priors}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{fig11_priors_comparison.png}
+\caption{(a) Original image. (b) Blurred measurement. (c) Direct inversion. (d) Tikhonov at
+$\lambda=10^{-3}$. (e) Total variation at $\lambda=2\times10^{-4}$. (f) Wavelet ISTA at its best
+iteration. PSNR and SSIM are shown above each panel.}
+\label{fig:priorscomp}
+\end{figure}
+
+TV gives the best result: $29.27$~dB and SSIM $0.925$, i.e.\ $5.78$~dB above the blurred
+measurement, $1.21$~dB above the wavelet ISTA, and $1.28$~dB above Tikhonov. Visually, the
+difference is explained by the shape of the penalty. Tikhonov removes the amplified noise of the
+direct inversion but smooths the edges and leaves a mottled texture. TV removes the noise while
+keeping the camera silhouette and the tripod legs sharp, because an edge costs only a fixed
+amount and is not forced to spread. ISTA lies in between: the wavelet basis captures the
+piecewise-smooth structure and some texture, but its thresholding is less effective at
+reconstructing clean edges.
+
+The cost of each method also differs. Tikhonov requires a single linear solve (conjugate
+gradients, a few seconds). TV requires an iterative primal-dual method, and $1500$ iterations
+were used here; its objective decreases monotonically and, unlike ISTA, the reconstruction does
+not deteriorate appreciably if the iteration continues: at $4000$ iterations the PSNR is
+$29.25$~dB, within $0.1$~dB of the value at $1500$. ISTA, by contrast, loses $1.9$~dB between
+its best iteration ($260$) and $1500$ iterations, which is the semi-convergence discussed in
+Section~\ref{sec:ista}.
+
+\paragraph{Limitations.}
+TV is not universally better. It can produce staircase plateaus on smooth gradients (visible as
+flat patches in Figure~\ref{fig:priorscomp}e), and the ranking depends on the image: on a
+texture-rich photograph the wavelet prior or a combination of priors may win. TV also requires
+choosing $\lambda$ and the number of iterations, and each iteration is more expensive than an
+ISTA step. The comparison nevertheless shows the main point: the choice of prior is a modelling
+decision, and the shape of the penalty controls which structures survive the inversion.
 
 %=====================================================================
 \section{Conclusions}
@@ -759,10 +968,17 @@ energy, which justifies an $\ell_1$ prior. With $\lambda=2\times10^{-5}$, ISTA r
 $28.05$~dB and SSIM $0.876$ at iteration $260$, against $-86.90$~dB for direct inversion. The
 objective decreases monotonically, but the PSNR peaks and then decreases, so early stopping is
 also a regularization mechanism.
-\item \textbf{Limits of the prior.} The prior stabilizes the inversion and restores structure, but
-it cannot recover the information dominated by noise: $1394$ of $2304$ singular directions are
-already below the noise level. Better priors (total variation, learned denoisers) or additional
-data are required to go further.
+\item \textbf{Comparison of priors.} With the same noisy data, total variation attains
+$29.27$~dB and SSIM $0.925$, the wavelet ISTA $28.05$~dB and $0.876$, and Tikhonov smoothness
+$27.98$~dB and $0.863$; all three are far above the blurred measurement ($23.49$~dB) and the
+direct inversion ($-86.90$~dB). The quadratic penalty of Tikhonov smooths edges, whereas the
+linear growth of the TV penalty preserves them, which explains the $1.28$~dB gain. Tikhonov is
+the cheapest method (one linear solve), TV the most expensive (a primal-dual iteration), and TV
+can produce staircase artifacts on smooth gradients.
+\item \textbf{Limits of the prior.} The priors stabilize the inversion and restore structure, but
+they cannot recover the information dominated by noise: $1394$ of $2304$ singular directions are
+already below the noise level. Better priors (learned denoisers, combinations of smoothness and
+sparsity) or additional data are required to go further.
 \end{enumerate}
 
 \begin{thebibliography}{9}
@@ -786,6 +1002,19 @@ no.~4, pp.~600--612, 2004.
 \bibitem{mallat2009}
 S.~Mallat, \emph{A Wavelet Tour of Signal Processing: The Sparse Way}, 3rd ed. Burlington, MA:
 Academic Press, 2009.
+
+\bibitem{tikhonov1963}
+A.~N. Tikhonov, ``Solution of incorrectly formulated problems and the regularization method,''
+\emph{Soviet Mathematics Doklady}, vol.~4, pp.~1035--1038, 1963.
+
+\bibitem{rof1992}
+L.~I. Rudin, S.~Osher, and E.~Fatemi, ``Nonlinear total variation based noise removal
+algorithms,'' \emph{Physica D}, vol.~60, no.~1--4, pp.~259--268, 1992.
+
+\bibitem{chambolle2011}
+A.~Chambolle and T.~Pock, ``A first-order primal-dual algorithm for convex problems with
+applications to imaging,'' \emph{Journal of Mathematical Imaging and Vision}, vol.~40, no.~1,
+pp.~120--145, 2011.
 \end{thebibliography}
 
 \end{document}

@@ -6,7 +6,7 @@ This folder contains the LaTeX source and the original figures extracted from
 ## Files
 
 - `main.tex` — complete report source.
-- `figures/` — the nine figures used in the report (PNG, taken directly from the
+- `figures/` — the eleven figures used in the report (PNG, taken directly from the
   notebook outputs).
 - `main.pdf` — compiled report.
 
