@@ -698,44 +698,6 @@ shown above each panel.}
 \label{fig:comparison}
 \end{figure}
 
-\subsection{Answers to the guiding questions}
-
-\paragraph{What artifacts appear without a prior, and how does sparsity change them?}
-The direct inversion produces a high-frequency checkerboard pattern caused by the amplified noise
-in the directions where $\sigma_i\ll1$ (Figure~\ref{fig:deconv}e). The wavelet prior suppresses
-these artifacts because the corresponding small wavelet coefficients are set to zero, while the
-large coefficients associated with edges are retained. The result is a stable image with sharp
-main structures instead of amplified noise.
-
-\paragraph{Why does soft-thresholding reduce noise while preserving important coefficients?}
-Natural images are sparse in the wavelet domain: a few large coefficients describe edges and
-structure, and many small coefficients describe texture and noise. Additive noise spreads over all
-coefficients, so the small ones are noise-dominated. Soft-thresholding maps every coefficient with
-$|u|\le\eta\lambda$ to zero and shrinks the others by $\eta\lambda$. This removes the
-noise-dominated coefficients and keeps the large, informative ones, at the cost of a small bias on
-them.
-
-\paragraph{What happens if $\lambda$ is too large or too small?}
-If $\lambda$ is too small, the threshold $\eta\lambda$ removes almost nothing, the noise survives,
-and the solution approaches the unstable least-squares inversion. The sweep shows the best PSNR at
-$\lambda=2\times10^{-5}$. If $\lambda$ is too large, useful coefficients are also removed: at
-$\lambda=10^{-3}$ the image is over-smoothed and both metrics fall ($25.58$~dB, SSIM $0.853$).
-The useful range is roughly one decade, $10^{-5}$--$10^{-4}$.
-
-\paragraph{How would a smoothness or total-variation prior change the result?}
-A total-variation prior penalizes the $\ell_1$ norm of the image gradient instead of wavelet
-coefficients, favoring piecewise-smooth images with sharp edges. Tikhonov smoothness, by contrast,
-is quadratic and easy to implement but blurs edges. Both were implemented and compared in
-Section~\ref{sec:priors}: with identical noisy data, TV reached $29.27$~dB and SSIM $0.925$,
-Tikhonov $27.98$~dB and SSIM $0.863$, and the wavelet ISTA $28.05$~dB and SSIM $0.876$. TV
-preserves the edges best, but it needs a primal-dual iteration (its proximal step has no closed
-form) and can produce staircase artifacts on smooth gradients.
-
-\paragraph{Does more iterations always mean a better image?}
-No. The objective decreases monotonically, but the PSNR peaks at iteration $260$ and then declines;
-at $1500$ iterations the PSNR has dropped to $26.17$~dB. Early stopping is therefore an additional
-regularization parameter, as discussed in Section~\ref{sec:ista}.
-
 %=====================================================================
 \section{Alternative priors: Tikhonov smoothness and total variation}\label{sec:priors}
 
@@ -942,6 +904,45 @@ texture-rich photograph the wavelet prior or a combination of priors may win. TV
 choosing $\lambda$ and the number of iterations, and each iteration is more expensive than an
 ISTA step. The comparison nevertheless shows the main point: the choice of prior is a modelling
 decision, and the shape of the penalty controls which structures survive the inversion.
+
+%=====================================================================
+\section{Answers to the guiding questions}\label{sec:answers}
+
+\paragraph{What artifacts appear without a prior, and how does sparsity change them?}
+The direct inversion produces a high-frequency checkerboard pattern caused by the amplified noise
+in the directions where $\sigma_i\ll1$ (Figure~\ref{fig:deconv}e). The wavelet prior suppresses
+these artifacts because the corresponding small wavelet coefficients are set to zero, while the
+large coefficients associated with edges are retained. The result is a stable image with sharp
+main structures instead of amplified noise.
+
+\paragraph{Why does soft-thresholding reduce noise while preserving important coefficients?}
+Natural images are sparse in the wavelet domain: a few large coefficients describe edges and
+structure, and many small coefficients describe texture and noise. Additive noise spreads over all
+coefficients, so the small ones are noise-dominated. Soft-thresholding maps every coefficient with
+$|u|\le\eta\lambda$ to zero and shrinks the others by $\eta\lambda$. This removes the
+noise-dominated coefficients and keeps the large, informative ones, at the cost of a small bias on
+them.
+
+\paragraph{What happens if $\lambda$ is too large or too small?}
+If $\lambda$ is too small, the threshold $\eta\lambda$ removes almost nothing, the noise survives,
+and the solution approaches the unstable least-squares inversion. The sweep shows the best PSNR at
+$\lambda=2\times10^{-5}$. If $\lambda$ is too large, useful coefficients are also removed: at
+$\lambda=10^{-3}$ the image is over-smoothed and both metrics fall ($25.58$~dB, SSIM $0.853$).
+The useful range is roughly one decade, $10^{-5}$--$10^{-4}$.
+
+\paragraph{How would a smoothness or total-variation prior change the result?}
+A total-variation prior penalizes the $\ell_1$ norm of the image gradient instead of wavelet
+coefficients, favoring piecewise-smooth images with sharp edges. Tikhonov smoothness, by contrast,
+is quadratic and easy to implement but blurs edges. Both were implemented and compared in the
+previous section: with identical noisy data, TV reached $29.27$~dB and SSIM $0.925$,
+Tikhonov $27.98$~dB and SSIM $0.863$, and the wavelet ISTA $28.05$~dB and SSIM $0.876$. TV
+preserves the edges best, but it needs a primal-dual iteration (its proximal step has no closed
+form) and can produce staircase artifacts on smooth gradients.
+
+\paragraph{Does more iterations always mean a better image?}
+No. The objective decreases monotonically, but the PSNR peaks at iteration $260$ and then declines;
+at $1500$ iterations the PSNR has dropped to $26.17$~dB. Early stopping is therefore an additional
+regularization parameter, as discussed in Section~\ref{sec:ista}.
 
 %=====================================================================
 \section{Conclusions}
